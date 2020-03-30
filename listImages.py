@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-PICTURES_DIR='/home/pi/pictures/'
+PICTURES_DIR='./images/'
 
 def eventkey(event):
   return event['timeofday'] + event['idx']
@@ -34,7 +34,7 @@ def list_events_for_date(date_to_show):
 def list_images(date_to_show):
   events = list_events_for_date(date_to_show)
   if not events:
-    print("No events for %s." % strftime(date_to_show, '%Y-%m-%d'))
+    print("No events for %s." % date_to_show.strftime('%Y-%m-%d'))
   print("There are %d events: " % len(events))
   keys = list(events.keys())
   keys.sort()
