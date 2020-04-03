@@ -5,6 +5,8 @@ import os
 import re
 import sys
 
+from explorer import imageExplorer
+
 PICTURES_DIR='./images/'
 
 def eventkey(event):
@@ -67,6 +69,9 @@ def show_image(date_to_show, idx):
         continue
       else:
          i -= 1
+    elif pressed == 120: # 'x'
+      xp = imageExplorer()
+      xp.exploreImage(img)
     else:
       break
     print('showing image %d of %d' % (i, len(ev[idx])))
