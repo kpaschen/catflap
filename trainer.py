@@ -9,7 +9,8 @@ class Trainer(object):
     def __init__(self):
         self.features = []
         self.labels = []
-        self.model = None
+        self.knn_model = None
+        self.dtree_model = None
 
     def label_for_string(self, strlabel):
         if strlabel == 'cat arriving':
@@ -47,51 +48,78 @@ class Trainer(object):
         self.features.append([np.float32(int(c)) for c in coords])
 
     def trainClassifier(self):
-        # self.model = cv2.ml.DTrees_create()
-        self.model = cv2.ml.KNearest_create()
         samples, labels = self.makeTrainingData()
-        self.model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
+        # Removing the dtree model for now because I get a core dump when I try to train.
+        # This could be something to do with my particular combination of opencv and other
+        # packages?
+        #self.dtree_model = cv2.ml.DTrees_create()
+        #self.dtree_model.setMaxDepth(4)
+        #self.dtree_model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
+        #print('dtree model trained')
+        self.knn_model = cv2.ml.KNearest_create()
+        samples, labels = self.makeTrainingData()
+        self.knn_model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
+        print('knn model trained')
 
-    def saveModel(self, modelfile):
-        if self.model:
-            self.model.save(modelfile)
+    def saveModels(self, modelfile):
+        if self.dtree_model:
+            print(f'saving dtree model to {modelfile}.dtree')
+            self.dtree_model.save(f'{modelfile}.dtree')
+        if self.knn_model:
+            print(f'saving knn model to {modelfile}.knn')
+            self.knn_model.save(f'{modelfile}.knn')
         else:
             print('No model to save')
 
-    def loadModel(self, modelfile):
-        if self.model:
-            print('Loading new model from %s, overwriting existing one.' % modelfile)
-        self.model = cv2.ml.DTRees.load(modelfile)
+    def loadModels(self, modelfile):
+        knn_file = f'{modelfile}.knn'
+        dtree_file = f'{modelfile}.dtree'
+        if os.path.exists(knn_file):
+            if self.knn_model:
+                print('Loading new knn model from %s, overwriting existing one.' % knn_file)
+            self.knn_model = cv2.ml.KNearest.load(knn_file)
+        if os.path.exists(dtree_file):
+            if self.dtree_model:
+                print('Loading new dtree model from %s, overwriting existing one.' % dtree_file)
+            self.dtree_model = cv2.ml.DTRees.load(dtree_file)
 
     def testClassifier(self):
-        if not self.model:
+        if not self.dtree_model and not self.knn_model:
             print('You have to train a model first')
             return
         featurecount=len(self.features)
-        confmatrix = np.zeros((4,4), dtype=np.int32)
-        goodcount = 0
+        confmatrix_dtree = np.zeros((4,4), dtype=np.int32)
+        confmatrix_knn = np.zeros((4,4), dtype=np.int32)
+        goodcount_dtree = 0
+        goodcount_knn = 0
         for index, sample in enumerate(self.features):
           f = np.ndarray((1, 4), dtype=np.float32, buffer=np.array(sample, dtype=np.float32))
-          retval, results = self.model.predict(f)
-          expected = self.labels[index]
-          confmatrix[int(retval)][int(expected)] += 1
-          if expected == retval:
-              # print('index {0} ({2}): good: {1}'.format(index, self.string_for_label(retval), sample))
-              goodcount += 1
-          #else:
-              # print('index {0} ({3}): bad: wanted {1} but got {2}'.format(index,
-              #    self.string_for_label(expected),
-              #    self.string_for_label(retval), sample))
-        print('performance: {0} out of {1} = {2}'.format(goodcount, featurecount, (float)(goodcount)/featurecount))
-        print('confusion matrix:\n ', confmatrix)
+          if self.dtree_model:
+              retval, results = self.dtree_model.predict(f)
+              expected = self.labels[index]
+              confmatrix_dtree[int(retval)][int(expected)] += 1
+              if expected == retval:
+                  goodcount_dtree += 1
+          print('dtree performance: {0} out of {1} = {2}'.format(
+              goodcount_dtree, featurecount, (float)(goodcount_dtree)/featurecount))
+          print('dtree confusion matrix:\n ', confmatrix_dtree)
+          if self.knn_model:
+              retval, results = self.knn_model.predict(f)
+              expected = self.labels[index]
+              confmatrix_knn[int(retval)][int(expected)] += 1
+              if expected == retval:
+                  goodcount_knn += 1
+          print('knn performance: {0} out of {1} = {2}'.format(
+              goodcount_knn, featurecount, (float)(goodcount_knn)/featurecount))
+          print('knn confusion matrix:\n ', confmatrix_knn)
 
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser('view camera images')
   parser.add_argument('--labelfile', default='/tmp/catlabels.csv', help='Training data')
   parser.add_argument('--testfile', default=None, help='Test data')
-  # If training, model will be written to this file.
-  # For testing, model will be loaded from this file.
+  # If training, models will be written to this file.
+  # For testing, models will be loaded from this file.
   parser.add_argument('--modelfile', default='./catflapmodel', help='File with model')
   args = parser.parse_args()
   training = False
@@ -117,19 +145,20 @@ if __name__ == "__main__":
               if parts[2] == 'unknown':
                   continue
               trainer.addTrainingData(label=parts[1], coords=(parts[2],parts[3],parts[4],parts[5]), img=None)
+      print('collected training data')
       trainer.trainClassifier()
       print('Finished training model')
       # This just tests on the training data
       trainer.testClassifier()
       if args.modelfile:
-          print('Saving model to %s' % args.modelfile)
-          trainer.saveModel(args.modelfile)
+          trainer.saveModels(args.modelfile)
+
   if testing:
       if not trainer.model:
           if not args.modelfile:
               print('Need to train a model or load one')
               exit
-          trainer.loadModel(args.modelfile)
+          trainer.loadModels(args.modelfile)
       with open(args.testfile, 'r') as testfile:
           for line in testfile:
               l = line.rstrip('\n')
