@@ -57,6 +57,7 @@ class Trainer(object):
         #self.dtree_model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
         #print('dtree model trained')
         self.knn_model = cv2.ml.KNearest_create()
+        self.knn_model.setDefaultK(2)
         samples, labels = self.makeTrainingData()
         self.knn_model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
         print('knn model trained')
@@ -77,11 +78,11 @@ class Trainer(object):
         if os.path.exists(knn_file):
             if self.knn_model:
                 print('Loading new knn model from %s, overwriting existing one.' % knn_file)
-            self.knn_model = cv2.ml.KNearest.load(knn_file)
+            self.knn_model = cv2.ml.KNearest_load(knn_file)
         if os.path.exists(dtree_file):
             if self.dtree_model:
                 print('Loading new dtree model from %s, overwriting existing one.' % dtree_file)
-            self.dtree_model = cv2.ml.DTRees.load(dtree_file)
+            self.dtree_model = cv2.ml.DTRees_load(dtree_file)
 
     def testClassifier(self):
         if not self.dtree_model and not self.knn_model:

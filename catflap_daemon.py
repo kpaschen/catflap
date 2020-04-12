@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument('--host', default='127.0.0.1', help='Where the catflap daemon runs')
     parser.add_argument('--port', default=3333, help='Port of the catflap daemon')
     parser.add_argument('--proto', default='UDP', help='Protocol (TCP or UDP)')
+    parser.add_argument('--statmodel', default='./catflapmodel.knn', help='Statistical model to load')
     args = parser.parse_args()
     loop = asyncio.get_event_loop()
     motion_queue = asyncio.Queue()
@@ -55,7 +56,7 @@ if __name__ == "__main__":
                 local_addr=(args.host, args.port))
         server, _ = loop.run_until_complete(connect)
     # This is a little low level
-    detector = CatDetector()
+    detector = CatDetector(args.statmodel)
     task = asyncio.ensure_future(motion_worker(motion_queue, detector))
     # task = asyncio.ensure_future(motion_worker(motion_queue))
     # task = loop.create_task(motion_worker(motion_queue, CatDetector()))
