@@ -10,7 +10,7 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         message = data.decode('utf8')
-        print('received message {0}'.format(message))
+        print('received message {0}'.format(message), flush=True)
         self._queue.put_nowait(message)
 
 
@@ -24,7 +24,7 @@ class TCPServerProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         msg = data.decode('utf8')
-        print('received message {0}'.format(msg))
+        print('received message {0}'.format(msg), flush=True)
         self.transport.close()
         self._queue.put_nowait(message)
 
@@ -33,8 +33,11 @@ async def motion_worker(queue, detector):
     while True:
         msg = await queue.get()
         queue.task_done()
-        value = detector.parse_message(msg)
-        print(value)
+        try:
+          value = detector.parse_message(msg)
+          print(value, flush=True)
+        except Exception as ex:
+          print('Failed to parse message {0} because {1}'.format(msg, ex), flush=True)
 
 
 if __name__ == "__main__":
@@ -48,6 +51,7 @@ if __name__ == "__main__":
     # Takes a lot less time than recompiling opencv on the pi.
     parser.add_argument('--labelfile', default=None, help='Training data for training model')
     args = parser.parse_args()
+    print('Starting cat flap daemon', flush=True)
     loop = asyncio.get_event_loop()
     motion_queue = asyncio.Queue()
     if args.proto == 'TCP':
@@ -58,8 +62,11 @@ if __name__ == "__main__":
         connect = loop.create_datagram_endpoint(
                 lambda: UDPServerProtocol(motion_queue),
                 local_addr=(args.host, args.port))
+        print('Bringing up udp server ...', flush=True)
         server, _ = loop.run_until_complete(connect)
+        print('Listening on port %d' % args.port, flush=True)
     detector = CatDetector(args.statmodel, args.labelfile)
+    print('made a cat detector', flush=True)
     task = asyncio.ensure_future(motion_worker(motion_queue, detector))
     # Alternative, less low-level.
     # task = loop.create_task(motion_worker(motion_queue, detector))

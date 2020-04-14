@@ -51,6 +51,8 @@ def show_image(imagedir, date_to_show, idx, labelfile):
     return
   i = 0
   img = cv2.imread(imagedir + ev[idx][i]['filename'])
+  if img is None:
+    print('failed to find image at %s' % imagedir + ev[idx][i]['filename'], flush=True)
   windowname = '%s: %s' % (idx, date_to_show)
   cv2.imshow(windowname, img)
   while(1):

@@ -15,6 +15,7 @@ from trainer import Trainer
 # 8 -> (wait a few seconds, then) 1
 class States(Enum):
     waiting = 1
+    # TODO: I think sometimes the motion message arrives before the image
     got_image = 2
     got_image_and_motion = 3
     no_cat_arriving = 4
@@ -43,7 +44,7 @@ class CatDetector(object):
           with open(trainingfile, 'r') as tfile:
             trainer.addTrainingDataFromFile(tfile)
           trainer.trainClassifier()
-          self._statmodel = trainer.knn_model
+          self._statModel = trainer.knn_model
         else: 
           # What kind of model are we loading? Could have a factory
           # here but for now, just basics.
@@ -103,6 +104,9 @@ class CatDetector(object):
         #  start by subtracting snapshot from current image
         # Evaluate and go to next state
         # TODO: put this into a class of its own and have explicit configuration.
+        if not len(self._images):
+            self._state = States.not_sure
+            return 'Probably got motion before image'
         cur = cv2.cvtColor(self._images[-1], cv2.COLOR_BGR2GRAY)
         ret, cur = cv2.threshold(cur, 127, 255, cv2.THRESH_BINARY)
         cur = cv2.Canny(cur, 100, 200, 3)
@@ -141,16 +145,16 @@ class CatDetector(object):
     def parse_message(self, message):
         msavefile = re.match(self.savefilepattern, message)
         if msavefile is not None:
-            basefilename = msavefile[1].split('/')
+            basefilename = msavefile.groups()[0].split('/')
             parts = basefilename[-1].split('-')
             if len(parts) < 2:
                 return 'Failed to parse save file message {0}'.format(message)
-            elif parts[2] == 'snapshot':
+            elif parts[2] == 'snapshot.jpg':
                 # This is a message telling us a new snapshot has been taken
-                return self.load_snapshot(msavefile[1])
+                return self.load_snapshot(msavefile.groups()[0])
             else:
                 # This is an image from a series
-                return self.load_image(msavefile[1])
+                return self.load_image(msavefile.groups()[0])
         else:
             motion = re.match(self.motionpattern, message)
             if motion is None:
