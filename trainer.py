@@ -40,6 +40,16 @@ class Trainer(object):
         l = np.asarray(self.labels).reshape((featurecount, 1))
         return (f, l)
 
+    def addTrainingDataFromFile(self, trainfile):
+        for line in trainfile:
+            l = line.rstrip('\n')
+            parts = l.split(',')
+            if parts[0] == 'filename': # headerline
+                continue
+            if parts[2] == 'unknown':
+                continue
+            self.addTrainingData(label=parts[1], coords=(parts[2], parts[3], parts[4], parts[5]), img=None)
+
     def addTrainingData(self, label, coords, img):
         self.labels.append(self.label_for_string(label))
         self.features.append([np.float32(int(c)) for c in coords])

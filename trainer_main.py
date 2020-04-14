@@ -26,14 +26,7 @@ if __name__ == "__main__":
   trainer = Trainer()
   if training:
       with open(args.labelfile, 'r') as labelfile:
-          for line in labelfile:
-              l = line.rstrip('\n')
-              parts = l.split(',')
-              if parts[0] == 'filename': # header line
-                  continue
-              if parts[2] == 'unknown':
-                  continue
-              trainer.addTrainingData(label=parts[1], coords=(parts[2],parts[3],parts[4],parts[5]), img=None)
+          trainer.addTrainingDataFromFile(labelfile)
       print('collected training data')
       trainer.trainClassifier()
       print('Finished training model')
