@@ -84,6 +84,8 @@ class CatDetector(object):
             self._state = States.got_image_and_motion
         self._motions.append(params)
         if self._state == States.no_cat_arriving:
+            # TODO: might want to wait a bit longer before deciding
+            # not to do anything.
             return 'ignoring motion event as no cat arriving'
         elif self._state == States.cat_flap_locked:
             return 'ignoring motion event as cat flap already locked'

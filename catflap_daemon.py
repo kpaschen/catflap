@@ -32,7 +32,6 @@ async def motion_worker(queue, detector):
     while True:
         msg = await queue.get()
         queue.task_done()
-        print(f'{msg} popped out of queue')
         value = detector.parse_message(msg)
         print(value)
 
@@ -55,9 +54,8 @@ if __name__ == "__main__":
                 lambda: UDPServerProtocol(motion_queue),
                 local_addr=(args.host, args.port))
         server, _ = loop.run_until_complete(connect)
-    # This is a little low level
     detector = CatDetector(args.statmodel)
     task = asyncio.ensure_future(motion_worker(motion_queue, detector))
-    # task = asyncio.ensure_future(motion_worker(motion_queue))
-    # task = loop.create_task(motion_worker(motion_queue, CatDetector()))
+    # Alternative, less low-level.
+    # task = loop.create_task(motion_worker(motion_queue, detector))
     loop.run_forever()
