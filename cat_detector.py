@@ -56,12 +56,12 @@ class CatDetector(object):
             self._snapshot = cv2.imread(filename)
             return 'snapshot'
         else:
-            return f'failed to load snapshot from {filename}'
+            return 'failed to load snapshot from {0}'.format(filename)
 
     def load_image(self, filename):
         img = cv2.imread(filename)
         if img is None:
-            return f'Failed to load image from {filename}'
+            return 'Failed to load image from {0}'.format(filename)
         basename = filename.split('/')
         parts = basename[-1].split('-')
         if self._state == States.waiting:
@@ -74,7 +74,7 @@ class CatDetector(object):
             self._state = States.got_image
         self._images.append(img)
         imageidx = len(self._images) - 1
-        return f'event {self._current_event} image {imageidx}'
+        return 'event {0} image {1}'.format(self._current_event, imageidx)
 
     def motion_detected(self, params):
         # TODO: make use of these. should be more helpful than the canny-based
@@ -124,7 +124,7 @@ class CatDetector(object):
                 self._state = States.no_cat_arriving
             elif detected == 3:
                 self._state = States.cat_arriving
-            return f'Evaluated image: {retval}'
+            return 'Evaluated image: {0}'.format(retval)
         else:
             self._state = States.not_sure
             return 'no lines found on image'
@@ -135,7 +135,7 @@ class CatDetector(object):
             basefilename = msavefile[1].split('/')
             parts = basefilename[-1].split('-')
             if len(parts) < 2:
-                return f'Failed to parse save file message {message}'
+                return 'Failed to parse save file message {0}'.format(message)
             elif parts[2] == 'snapshot':
                 # This is a message telling us a new snapshot has been taken
                 return self.load_snapshot(msavefile[1])
@@ -145,7 +145,7 @@ class CatDetector(object):
         else:
             motion = re.match(self.motionpattern, message)
             if motion is None:
-                return f'Failed to recognize message {message}'
+                return 'Failed to recognize message {0}'.format(message)
             else:
                 return self.motion_detected(motion.groups())
 
