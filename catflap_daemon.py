@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 from cat_detector import CatDetector
+from trainer import Trainer
 
 class UDPServerProtocol(asyncio.DatagramProtocol):
 
@@ -42,6 +43,10 @@ if __name__ == "__main__":
     parser.add_argument('--port', default=3333, help='Port of the catflap daemon')
     parser.add_argument('--proto', default='UDP', help='Protocol (TCP or UDP)')
     parser.add_argument('--statmodel', default='./catflapmodel.knn', help='Statistical model to load')
+    # In opencv 4.0.0 there is no way that I can see to load a trained knn model in python.
+    # But since the current model is pretty simple, we can just train it here.
+    # Takes a lot less time than recompiling opencv on the pi.
+    parser.add_argument('--labelfile', default=None, help='Training data for training model')
     args = parser.parse_args()
     loop = asyncio.get_event_loop()
     motion_queue = asyncio.Queue()
@@ -54,7 +59,7 @@ if __name__ == "__main__":
                 lambda: UDPServerProtocol(motion_queue),
                 local_addr=(args.host, args.port))
         server, _ = loop.run_until_complete(connect)
-    detector = CatDetector(args.statmodel)
+    detector = CatDetector(args.statmodel, args.labelfile)
     task = asyncio.ensure_future(motion_worker(motion_queue, detector))
     # Alternative, less low-level.
     # task = loop.create_task(motion_worker(motion_queue, detector))

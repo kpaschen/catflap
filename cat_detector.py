@@ -3,6 +3,7 @@ from datetime import date, datetime
 from enum import Enum
 import numpy as np
 import re
+from trainer import Trainer
 
 
 # State transitions:
@@ -25,7 +26,7 @@ class States(Enum):
 
 class CatDetector(object):
 
-    def __init__(self, modelfile):
+    def __init__(self, modelfile, trainingfile):
         self._state = States.waiting
         self._snapshot = None
         self._motions = []
@@ -36,13 +37,21 @@ class CatDetector(object):
           'motion detected: (\d+) changed pixels (\d+) x (\d+) at (\d+) (\d+)')
 
         self._statModel = None
-        # What kind of model are we loading? Could have a factory
-        # here but for now, just basics.
-        suffix = modelfile.split('.')[-1]
-        if suffix == 'knn':
-            self._statModel = cv2.ml.KNearest_load(modelfile)
-        else:
-            raise NotImplementedError('Only supporting knn models right now')
+        if trainingfile is not None:
+          # Cannot load a model? Train our own!
+          trainer = Trainer()
+          with open(trainingfile, 'r') as tfile:
+            trainer.addTrainingDataFromFile(tfile)
+          trainer.trainClassifier()
+          self._statmodel = trainer.knn_model
+        else: 
+          # What kind of model are we loading? Could have a factory
+          # here but for now, just basics.
+          suffix = modelfile.split('.')[-1]
+          if suffix == 'knn':
+              self._statModel = cv2.ml.KNearest_load(modelfile)
+          else:
+              raise NotImplementedError('Only supporting knn models right now')
 
 
     # TODO: all the file reading operations should probably be done

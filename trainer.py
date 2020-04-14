@@ -71,17 +71,19 @@ class Trainer(object):
 
     def saveModels(self, modelfile):
         if self.dtree_model:
-            print(f'saving dtree model to {modelfile}.dtree')
-            self.dtree_model.save(f'{modelfile}.dtree')
+            filename = '{0}.dtree'.format(modelfile)
+            print('saving dtree model to {0}'.format(filename))
+            self.dtree_model.save('{0}'.format(filename))
         if self.knn_model:
-            print(f'saving knn model to {modelfile}.knn')
-            self.knn_model.save(f'{modelfile}.knn')
+            filename = '{0}.knn'.format(modelfile)
+            print('saving dtree model to {0}'.format(filename))
+            self.dtree_model.save('{0}'.format(filename))
         else:
             print('No model to save')
 
     def loadModels(self, modelfile):
-        knn_file = f'{modelfile}.knn'
-        dtree_file = f'{modelfile}.dtree'
+        knn_file = '{0}.knn'.format(modelfile)
+        dtree_file = '{0}.dtree'.format(modelfile)
         if os.path.exists(knn_file):
             if self.knn_model:
                 print('Loading new knn model from %s, overwriting existing one.' % knn_file)
