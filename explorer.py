@@ -47,12 +47,20 @@ class imageExplorer:
             p = points[0]
             if p[0] < left:
                 left = p[0]
+            if p[0] > right:
+                right = p[0]
             if p[1] < top:
                 top = p[1]
+            if p[1] > bottom:
+                bottom = p[2]
             if p[2] > right:
                 right = p[2]
+            if p[2] < left:
+                left = p[2] 
             if p[3] > bottom:
                 bottom = p[3]
+            if p[3] < top:
+                top = p[3]
             cv2.line(img, (p[0],p[1]), (p[2],p[3]), (0, 0, 255), 1)
         self.coords = (left, right, top, bottom)
         print('left %d, right %d, top %d, bottom %d' % (left, right, top, bottom))
