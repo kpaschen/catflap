@@ -76,8 +76,8 @@ class Trainer(object):
             self.dtree_model.save('{0}'.format(filename))
         if self.knn_model:
             filename = '{0}.knn'.format(modelfile)
-            print('saving dtree model to {0}'.format(filename))
-            self.dtree_model.save('{0}'.format(filename))
+            print('saving knn model to {0}'.format(filename))
+            self.knn_model.save('{0}'.format(filename))
         else:
             print('No model to save')
 

@@ -16,7 +16,7 @@ if __name__ == "__main__":
     if not args.msg:
         print('Skipping event with empty message')
         exit
-    addr = (args.host, args.port)
+    addr = (args.host, int(args.port))
     if args.proto == 'TCP':
         client_socket = socket(AF_INET, SOCK_STREAM)
         client_socket.connect(addr)

@@ -8,6 +8,13 @@ class imageExplorer:
             x = 3
         self.cannyAperture = x
 
+    def onHoughDistTrackbar(self, x):
+        self.houghDistResolution = x
+
+    def onHoughAngleTrackbar(self, x):
+        # actual resolution will be (x * np.pi)/180
+        self.houghAngleResolution = x
+
     def onHoughMinLLTrackbar(self, x):
         self.houghMinLL = x
 
@@ -20,21 +27,35 @@ class imageExplorer:
     def onContourMinSize(self, x):
         self.contourMinSize = x
 
+    def onCannyMin(self, x):
+        self.cannyMin = x
+
+    def onCannyMax(self, x):
+        self.cannyMax = x
+
     def __init__(self, filename, labelfile):
         self.windowName = 'Processed image'
         self.cannyAperture = 3
+        self.cannyMin = 100
+        self.cannyMax = 200
         self.houghMinLL = 25
         self.houghMaxLG = 35
         self.houghStrength = 40
+        self.houghDistanceResolution = 1
+        self.houghAngleResolution = 1
         self.contourMinSize = 30
         self.filename = filename
         self.coords = None
         self.labelfile = labelfile
         cv2.namedWindow(self.windowName)
         cv2.createTrackbar('Canny aperture size', self.windowName, self.cannyAperture, 9, self.onCannyTrackbar)
+        cv2.createTrackbar('Canny min', self.windowName, self.cannyMin, 200, self.onCannyMin)
+        cv2.createTrackbar('Canny max', self.windowName, self.cannyMax, 400, self.onCannyMax)
         cv2.createTrackbar('Hough min line length', self.windowName, self.houghMinLL, 100, self.onHoughMinLLTrackbar)
         cv2.createTrackbar('Hough max line gap', self.windowName, self.houghMaxLG, 100, self.onHoughMaxLGTrackbar)
         cv2.createTrackbar('Hough strength', self.windowName, self.houghStrength, 200, self.onHoughStrengthTrackbar)
+        cv2.createTrackbar('Hough distance', self.windowName, self.houghDistanceResolution, 10, self.onHoughDistTrackbar)
+        cv2.createTrackbar('Hough angle', self.windowName, self.houghAngleResolution, 90, self.onHoughDistTrackbar)
         cv2.createTrackbar('Contour min size', self.windowName, self.contourMinSize, 2000, self.onContourMinSize)
 
     def drawLinesOnImg(self, lines, img):
@@ -52,7 +73,7 @@ class imageExplorer:
             if p[1] < top:
                 top = p[1]
             if p[1] > bottom:
-                bottom = p[2]
+                bottom = p[1]
             if p[2] > right:
                 right = p[2]
             if p[2] < left:
@@ -76,13 +97,14 @@ class imageExplorer:
           if pressed == 113: # 'q' for quit
               break
           elif pressed == 99: # 'c' for canny
-            self.cur = cv2.Canny(self.cur, 100, 200, self.cannyAperture)
+            self.cur = cv2.Canny(self.cur, self.cannyMin, self.cannyMax, self.cannyAperture)
             cv2.imshow(self.windowName, self.cur)
           elif pressed == 101: # 'e' equalizeHist
             self.cur = cv2.equalizeHist(self.cur)
             cv2.imshow(self.windowName, self.cur)
           elif pressed == 104: # 'h' for hough
-            lines = cv2.HoughLinesP(self.cur, 1, np.pi/180, self.houghStrength, self.houghMinLL, self.houghMaxLG)
+            angleres = (self.houghAngleResolution * np.pi)/180
+            lines = cv2.HoughLinesP(self.cur, self.houghDistanceResolution, angleres, self.houghStrength, self.houghMinLL, self.houghMaxLG)
             if lines is None or len(lines) == 0:
                 print('hough found no lines')
                 cv2.imshow(self.windowName, self.cur)
