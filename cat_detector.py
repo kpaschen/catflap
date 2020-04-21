@@ -15,7 +15,7 @@ from trainer import Trainer
 # 8 -> (wait a few seconds, then) 1
 class States(Enum):
     waiting = 1
-    # TODO: I think sometimes the motion message arrives before the image
+    # TODO: I think the motion message usually arrives before the image
     got_image = 2
     got_image_and_motion = 3
     no_cat_arriving = 4
@@ -120,12 +120,20 @@ class CatDetector(object):
                 p = points[0]
                 if p[0] < left:
                     left = p[0]
+                if p[2] < left:
+                    left = p[2]
                 if p[1] < top:
                     top = p[1]
+                if p[3] < top:
+                    top = p[3]
                 if p[2] > right:
                     right = p[2]
+                if p[0] > right:
+                    right = p[0]
                 if p[3] > bottom:
                     bottom = p[3]
+                if p[1] > bottom:
+                    bottom = p[1]
             features = np.ndarray((1, 4), dtype=np.float32, buffer=np.array((left, right, top, bottom), dtype=np.float32))
             retval, result = self._statModel.predict(features)
             detected = int(retval)
