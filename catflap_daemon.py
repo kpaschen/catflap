@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+from datetime import datetime
 from cat_detector import CatDetector
 from trainer import Trainer
 
@@ -30,12 +31,18 @@ class TCPServerProtocol(asyncio.Protocol):
 
 
 async def motion_worker(queue, detector):
+    lastmsgtime = datetime.now()
     while True:
         msg = await queue.get()
         queue.task_done()
+        msgtime = datetime.now()
+        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S")
+        if (msgtime - lastmsgtime).seconds > 300:
+            print("{0} time passed since last message, resetting cat detector".format(msgtime - lastmsgtime))
+            detector.reset()
         try:
           value = detector.parse_message(msg)
-          print(value, flush=True)
+          print("{0}: {1}".format(timestr, value), flush=True)
         except Exception as ex:
           print('Failed to parse message {0} because {1}'.format(msg, ex), flush=True)
 

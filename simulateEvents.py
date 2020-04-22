@@ -48,8 +48,8 @@ async def simulate_event(imagedir, date_to_show, idx, addr):
   bt = time.fromisoformat(basetime[0:2] + ':' + basetime[2:4] + ':' + basetime[4:6])
   b = datetime.combine(date.today(), bt)
   for i in range(1, len(ev[idx])):
-      await send_msg(f'saved {imagefile}', addr)
       await send_msg('motion detected: 41725 changed pixels 304 x 216 at 181 108', addr)
+      await send_msg(f'saved {imagefile}', addr)
       imagefile = imagedir + ev[idx][i]['filename']
       nexttime = ev[idx][i]['timeofday']
       nt = time.fromisoformat(nexttime[0:2] + ':' + nexttime[2:4] + ':' + nexttime[4:6])

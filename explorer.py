@@ -86,16 +86,28 @@ class imageExplorer:
         self.coords = (left, right, top, bottom)
         print('left %d, right %d, top %d, bottom %d' % (left, right, top, bottom))
         
-    def exploreImage(self, img):
+    def exploreImage(self, img, snap=None):
         self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        if snap is not None:
+            self.snap = cv2.cvtColor(snap, cv2.COLOR_BGR2GRAY)
+        else:
+            self.snap = None
         cv2.imshow(self.windowName, self.cur)
-        print('shell: q to quit, c canny, h find lines with hough, t threshold, o contours, r reset')
+        print('shell: q to quit, c canny, h find lines with hough, t threshold, '
+              'o contours, s subtract snapshot, x extract roi, + zoom in, '
+              '- zoom out, r reset')
 
         while(1):
           pressed = cv2.waitKey(0)
           print(pressed)
           if pressed == 113: # 'q' for quit
               break
+          elif pressed == 43: # + for zoom in
+              self.cur = cv2.resize(self.cur, None, fx=1.2, fy=1.2, interpolation=cv2.INTER_CUBIC) 
+              cv2.imshow(self.windowName, self.cur)
+          elif pressed == 45: # - for zoom out
+              self.cur = cv2.resize(self.cur, None, fx=0.8, fy=0.8, interpolation=cv2.INTER_CUBIC) 
+              cv2.imshow(self.windowName, self.cur)
           elif pressed == 99: # 'c' for canny
             self.cur = cv2.Canny(self.cur, self.cannyMin, self.cannyMax, self.cannyAperture)
             cv2.imshow(self.windowName, self.cur)
@@ -142,10 +154,37 @@ class imageExplorer:
           elif pressed == 114: # 'r' for reset
             self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             cv2.imshow(self.windowName, self.cur)
+          elif pressed == 115: # 's' for subtract snapshot
+            if self.snap is not None:
+                self.cur = cv2.absdiff(self.cur, self.snap)
+                cv2.imshow(self.windowName, self.cur)
+            else:
+                print('no snapshot provided')
           elif pressed == 116: # 't' for threshold
             # Non-adaptive, but seems to do reasonably well?
-            ret,self.cur = cv2.threshold(self.cur, 127, 255, cv2.THRESH_BINARY)
+            ret, self.cur = cv2.threshold(self.cur, 127, 255, cv2.THRESH_BINARY)
             cv2.imshow(self.windowName, self.cur)
+          elif pressed == 120: # 'x' for extract
+              if self.coords is None:
+                  print('need to find a rectangle roi first')
+              else:
+                  gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                  y1 = min(self.coords[2], self.coords[3])
+                  if y1 >= 20:
+                      y1 -= 20
+                  else:
+                      y1 = 0
+                  y2 = max(self.coords[2], self.coords[3])
+                  y2 += 20
+                  x1 = min(self.coords[0], self.coords[1])
+                  x2 = max(self.coords[0], self.coords[1])
+                  if x1 >= 20:
+                      x1 -= 20
+                  else:
+                      x1 = 0
+                  x2 += 20
+                  self.cur = gray[y1:y2, x1:x2]
+                  cv2.imshow(self.windowName, self.cur)
 
         cv2.destroyAllWindows()
 

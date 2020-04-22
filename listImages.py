@@ -23,12 +23,28 @@ def list_events_for_date(imagedir, date_to_show):
       idx = m.group(3)
       if event_id not in events:
         events[event_id] = []
-      events[event_id].append({'timeofday': timeofday, 'idx': idx, 'filename': file})
+      events[event_id].append({'timeofday': timeofday,
+          'id': event_id,
+          'datetime': datestr + timeofday,
+          'idx': idx,
+          'filename': file})
       
   for k, v in events.items():
     v.sort(key=eventkey)
 
   return events
+
+def find_snapshot_for_event(imagedir, event):
+    x = datetime.strptime(event[0]['datetime'], '%Y%m%d%H%M%S')
+    snapshottime = datetime(x.year, x.month, x.day, x.hour).strftime(
+            '%Y%m%d%H%M%S')
+    snapshotfilename = '{0}-{1}-snapshot.jpg'.format(event[0]['id'], snapshottime)
+    if os.path.exists(imagedir + snapshotfilename):
+        return cv2.imread(imagedir + snapshotfilename)
+    elif os.path.exists(imagedir + 'lastsnap.jpg'):
+        return cv2.imread(imagedir + 'lastsnap.jpg')
+    print("No snapshot for %s" % snapshottime)
+    return None
 
 
 def list_images(imagedir, date_to_show):
@@ -55,6 +71,9 @@ def show_image(imagedir, date_to_show, idx, labelfile):
     print('failed to find image at %s' % imagedir + ev[idx][i]['filename'], flush=True)
   windowname = '%s: %s' % (idx, date_to_show)
   cv2.imshow(windowname, img)
+  snap = find_snapshot_for_event(imagedir, ev[idx])
+  if snap is not None:
+      cv2.imshow('snapshot', snap)
   while(1):
     pressed = cv2.waitKey(0)
     if pressed == 83: # cursor right
@@ -71,7 +90,7 @@ def show_image(imagedir, date_to_show, idx, labelfile):
          i -= 1
     elif pressed == 120: # 'x'
       xp = imageExplorer(ev[idx][i]['filename'], labelfile)
-      xp.exploreImage(img)
+      xp.exploreImage(img, snap)
     else:
       break
     print('showing image %d of %d' % (i, len(ev[idx])))
