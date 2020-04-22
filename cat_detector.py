@@ -143,8 +143,6 @@ class CatDetector(object):
         # detection. Motion events appear to be sent just before an image saved
         # event, most of the time.
         (pxcount, width, height, x, y) = params
-        if self._state == States.waiting:
-            self._state = States.got_motion
         return 'motion: {0}'.format(params)
 
     def parse_message(self, message):

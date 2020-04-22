@@ -10,8 +10,10 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
         self._queue = queue
 
     def datagram_received(self, data, addr):
+        msgtime = datetime.now()
+        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S")
         message = data.decode('utf8')
-        print('received message {0}'.format(message), flush=True)
+        print('{0}: received message {1}'.format(timestr, message), flush=True)
         self._queue.put_nowait(message)
 
 
@@ -24,8 +26,10 @@ class TCPServerProtocol(asyncio.Protocol):
         self.transport = transport
 
     def data_received(self, data):
+        msgtime = datetime.now()
+        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S")
         msg = data.decode('utf8')
-        print('received message {0}'.format(msg), flush=True)
+        print('{0}: received message {1}'.format(timestr, msg), flush=True)
         self.transport.close()
         self._queue.put_nowait(message)
 
@@ -40,6 +44,7 @@ async def motion_worker(queue, detector):
         if (msgtime - lastmsgtime).seconds > 300:
             print("{0} time passed since last message, resetting cat detector".format(msgtime - lastmsgtime))
             detector.reset()
+        lastmsgtime = msgtime
         try:
           value = detector.parse_message(msg)
           print("{0}: {1}".format(timestr, value), flush=True)
