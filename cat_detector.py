@@ -6,26 +6,27 @@ import re
 from trainer import Trainer
 
 
-# State transitions:
-# 1 -> 2 -> [3, 4, 5]
-# Always: return to state 1 when new event starts
-# 4 -> [3, 4, 5]
-# 5 -> [3, 5, 6] (3: cat definitely not carrying mouse)
-# 6 -> 7  (6 and 7 are not really separate states)
-class States(Enum):
+# Two state machines.
+class MessageStates(Enum):
     waiting = 1
-    got_image = 2
-    no_cat_arriving = 3
-    not_sure = 4
-    cat_arriving = 5
-    cat_with_mouse = 6
-    cat_flap_locked = 7
+    got_motion = 2
+    got_image = 3
+    got_image_and_motion = 4
+
+
+class CatStates(Enum):
+    waiting = 1
+    no_cat_arriving = 2
+    not_sure = 3
+    cat_arriving = 4
+    cat_with_prey = 5
 
 
 class CatDetector(object):
 
     def __init__(self, modelfile, trainingfile):
-        self._state = States.waiting
+        self._message_state = MessageStates.waiting
+        self._cat_state = CatStates.waiting
         self._snapshot = None
         self._motions = []
         self._images = []
@@ -57,6 +58,9 @@ class CatDetector(object):
     # the main event loop). However, since the images are pretty small
     # (about 16K) and we get at most two per second, it's not a huge
     # concern.
+    # There is also literally nothing else I want the system to do while
+    # it's loading and processing an image, so maybe threads are not the
+    # way to go here anyway :-).
     def load_snapshot(self, filename):
         img = cv2.imread(filename)
         if img is not None:
@@ -72,7 +76,39 @@ class CatDetector(object):
         self._current_event = -1
         self._motions = []
         self._images = []
-        self._state = States.waiting
+        self._message_state = MessageStates.waiting
+        self._cat_state = CatStates.waiting
+
+    def process_image_and_motion(self):
+        self._message_state = MessageState.waiting
+        if self._cat_state == CatStates.no_cat_arriving:
+            # TODO: might want to wait a bit longer before deciding
+            # not to do anything.
+            return 'ignoring image as no cat arriving'
+        elif self._cat_state == CatStates.cat_with_prey:
+            return 'ignoring image as cat flap already locked'
+        if not len(self._images):
+            return 'cannot process image as there are none in the list'
+        img = self._images[-1]
+        if self._cat_state != CatStates.cat_arriving:
+            detected = self.evaluate_image(img)
+            if detected == 0:
+                self._cat_state = CatStates.no_cat_arriving
+            elif detected == 1:
+                self._cat_state = CatStates.not_sure
+            elif detected == 2:
+                self._cat_state = CatStates.no_cat_arriving
+            elif detected == 3:
+                self._cat_state = CatStates.cat_arriving
+        if self._cat_state == CatStates.cat_arriving:
+            has_prey = self.decide_if_cat_has_prey(img)
+            if has_prey:
+                # TODO: lock cat flap and set a timer to unlock it
+                return 'event {0} image {1}: should lock cat flap '.format(
+                        self._current_event, len(self._images))
+        return 'event {0} image {1} evaluated as {2}'.format(
+                self._current_event, len(self._images), self._cat_state)
+
 
     def load_image(self, filename):
         img = cv2.imread(filename)
@@ -80,42 +116,22 @@ class CatDetector(object):
             return 'Failed to load image from {0}'.format(filename)
         basename = filename.split('/')
         parts = basename[-1].split('-')
-        if self._state == States.waiting:
-            self._state = States.got_image
+        if self._message_state == MessageStates.waiting:
+            self._message_state = MessageStates.got_image
+        elif self._message_state == MessageStates.got_motion:
+            self._message_state = MessageStates.got_image_and_motion
         if int(parts[0]) != self._current_event:
-            # New event, reset.
-            self.reset()
+            # reset() will be called by the daemon if too much time
+            # has passed since the last event.
+            # If reset() hasn't been called, it's possible this is a new
+            # event following quickly after another event. Sometimes the
+            # cats sit about in front of the cat flap for a while.
             self._current_event = int(parts[0])
-            self._state = States.got_image
         self._images.append(img)
-        if self._state == States.no_cat_arriving:
-            # TODO: might want to wait a bit longer before deciding
-            # not to do anything.
-            return 'ignoring image as no cat arriving'
-        elif self._state == States.cat_flap_locked:
-            return 'ignoring image as cat flap already locked'
-        # TODO: if self._state == States.cat_arriving:
-        #  different evaluation as have to decide whether cat has mouse
-        #  start by subtracting snapshot from current image
-        # Evaluate and go to next state
-        if self._state != States.cat_arriving:
-            detected = self.evaluate_image(img)
-            if detected == 0:
-                self._state = States.no_cat_arriving
-            elif detected == 1:
-                self._state = States.not_sure
-            elif detected == 2:
-                self._state = States.no_cat_arriving
-            elif detected == 3:
-                self._state = States.cat_arriving
-        if self._state == States.cat_arriving:
-            has_prey = self.decide_if_cat_has_prey(img)
-            if has_prey:
-                # TODO: lock cat flap and set a timer to unlock it
-                return 'event {0} image {1}: should lock cat flap '.format(
-                        self._current_event, len(self._images))
-        return 'event {0} image {1} evaluated as {2}'.format(
-                self._current_event, len(self._images), self._state)
+        if self._message_state == MessageStates.got_image_and_motion:
+            return self.process_image_and_motion()
+        else:
+            return 'got image but no motion event'
 
     def evaluate_image(self, img):
         cur = cv2.cvtColor(self._images[-1], cv2.COLOR_BGR2GRAY)
@@ -123,7 +139,7 @@ class CatDetector(object):
         cur = cv2.Canny(cur, 100, 200, 3)
         lines = cv2.HoughLinesP(cur, 1, np.pi/180, 40, 25, 35)
         if lines is None or not len(lines):
-            return None
+            return 'no lines found on image'
         left = 400
         right = 0
         top = 240
@@ -142,8 +158,17 @@ class CatDetector(object):
         # TODO: make use of these. should be more helpful than the canny-based
         # detection. Motion events appear to be sent just before an image saved
         # event, most of the time.
-        (pxcount, width, height, x, y) = params
-        return 'motion: {0}'.format(params)
+        # (pxcount, width, height, x, y) = params
+        self._motions.append(params)
+        if self._message_state == MessageStates.got_image:
+            # This is weird, got motion after image? Not sure how to pair this
+            # event up, is it ok to match it with the last image received?
+            self._message_state = MessageStates.got_image_and_motion
+            return 'motion before image?'
+            # return self.process_image_and_motion()
+        elif self._message_state == MessageStates.waiting:
+            self._message_state = MessageStates.got_motion
+            return 'motion: {0}'.format(params)
 
     def parse_message(self, message):
         msavefile = re.match(self.savefilepattern, message)
