@@ -80,7 +80,7 @@ class CatDetector(object):
         self._cat_state = CatStates.waiting
 
     def process_image_and_motion(self):
-        self._message_state = MessageState.waiting
+        self._message_state = MessageStates.waiting
         if self._cat_state == CatStates.no_cat_arriving:
             # TODO: might want to wait a bit longer before deciding
             # not to do anything.

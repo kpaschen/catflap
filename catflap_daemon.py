@@ -11,7 +11,7 @@ class UDPServerProtocol(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         msgtime = datetime.now()
-        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S")
+        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S:%f")
         message = data.decode('utf8')
         print('{0}: received message {1}'.format(timestr, message), flush=True)
         self._queue.put_nowait(message)
@@ -27,7 +27,7 @@ class TCPServerProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         msgtime = datetime.now()
-        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S")
+        timestr = msgtime.strftime("%Y-%m-%d-%H:%M:%S:%f")
         msg = data.decode('utf8')
         print('{0}: received message {1}'.format(timestr, msg), flush=True)
         self.transport.close()
