@@ -24,7 +24,33 @@ class CatStates(Enum):
 
 class CatDetector(object):
 
-    def __init__(self, modelfile, trainingfile):
+    statModel = None
+
+    @classmethod
+    def setupCatDetector(cls, modelfile, trainingfile):
+        if trainingfile is not None:
+          # Cannot load a model? Train our own!
+          trainer = Trainer()
+          with open(trainingfile, 'r') as tfile:
+            trainer.addTrainingDataFromFile(tfile)
+          trainer.trainClassifier()
+          cls.statModel = trainer.knn_model
+        else: 
+          # What kind of model are we loading? Could have a factory
+          # here but for now, just basics.
+          suffix = modelfile.split('.')[-1]
+          if suffix == 'knn':
+            cls.statModel = cv2.ml.KNearest_load(modelfile)
+          else:
+            raise NotImplementedError('Only supporting knn models right now')
+
+    @classmethod
+    def makeCatDetector(cls):
+        if cls.statModel:
+            return cls(cls.statModel)
+        return None
+
+    def __init__(self, statModel):
         self._message_state = MessageStates.waiting
         self._cat_state = CatStates.waiting
         self._snapshot = None
@@ -35,23 +61,7 @@ class CatDetector(object):
         self.savefilepattern = re.compile('saved (.*.jpg)')
         self.motionpattern = re.compile(
           'motion detected: (\d+) changed pixels (\d+) x (\d+) at (\d+) (\d+)')
-
-        self._statModel = None
-        if trainingfile is not None:
-          # Cannot load a model? Train our own!
-          trainer = Trainer()
-          with open(trainingfile, 'r') as tfile:
-            trainer.addTrainingDataFromFile(tfile)
-          trainer.trainClassifier()
-          self._statModel = trainer.knn_model
-        else: 
-          # What kind of model are we loading? Could have a factory
-          # here but for now, just basics.
-          suffix = modelfile.split('.')[-1]
-          if suffix == 'knn':
-              self._statModel = cv2.ml.KNearest_load(modelfile)
-          else:
-              raise NotImplementedError('Only supporting knn models right now')
+        self._statModel = statModel
 
 
     # TODO: all the file reading operations should probably be done
@@ -68,20 +78,20 @@ class CatDetector(object):
             self._snapshot = cv2.imread(filename)
             return 'snapshot'
         else:
-            return 'failed to load snapshot from {0}'.format(filename)
+            return 'Failed to load snapshot from {0}'.format(filename)
 
-    def determine_trajectory(self, trajectory):
-        if len(trajectory) < 2):
+    def determine_trajectory(self):
+        if len(self._trajectory) < 2:
             return None
-        xdiff = numpy.sign(trajectory[-1][0] - trajectory[-2][0])
-        ydiff = numpy.sign(trajectory[-1][1] - trajectory[-2][1])
+        xdiff = np.sign(self._trajectory[-1][0] - self._trajectory[-2][0])
+        ydiff = np.sign(self._trajectory[-1][1] - self._trajectory[-2][1])
         return { -1 : { 0: 'w', -1: 'nw', 1: 'sw' },
                   0 : { 0: 'c', -1: 'n',  1: 's' },
                   1 : { 0: 'e', -1: 'ne', 1: 'se' } }[xdiff][ydiff]
             
 
     def decide_if_cat_has_prey(self, image, trajectory):
-        direction = self.determine_trajectory(trajectory)
+        direction = self.determine_trajectory()
         return False
 
     def reset(self):
@@ -125,6 +135,7 @@ class CatDetector(object):
 
 
     def load_image(self, filename):
+        # TODO: maybe don't do this until we know we need it.
         img = cv2.imread(filename)
         if img is None:
             return 'Failed to load image from {0}'.format(filename)
@@ -193,7 +204,7 @@ class CatDetector(object):
             # may want to check timestamps as well?
             self._message_state = MessageStates.got_image_and_motion
             return self.process_image_and_motion()
-        elif self._message_state == MessageStates.waiting:
+        else:
             self._message_state = MessageStates.got_motion
             return 'motion: {0}'.format(params)
 
@@ -202,7 +213,7 @@ class CatDetector(object):
         if msavefile is not None:
             basefilename = msavefile.groups()[0].split('/')
             parts = basefilename[-1].split('-')
-            if len(parts) < 2:
+            if len(parts) < 3:
                 return 'Failed to parse save file message {0}'.format(message)
             elif parts[2] == 'snapshot.jpg':
                 # This is a message telling us a new snapshot has been taken
@@ -215,7 +226,7 @@ class CatDetector(object):
             if motion is None:
                 return 'Failed to recognize message {0}'.format(message)
             else:
-                return self.motion_detected(motion.groups())
+                return self.motion_detected(tuple(int(m) for m in motion.groups()))
 
 
 
