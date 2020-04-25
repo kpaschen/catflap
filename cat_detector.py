@@ -30,6 +30,7 @@ class CatDetector(object):
         self._snapshot = None
         self._motions = []
         self._images = []
+        self._trajectory = []
         self._current_event = -1
         self.savefilepattern = re.compile('saved (.*.jpg)')
         self.motionpattern = re.compile(
@@ -69,13 +70,25 @@ class CatDetector(object):
         else:
             return 'failed to load snapshot from {0}'.format(filename)
 
-    def decide_if_cat_has_prey(self, img):
+    def determine_trajectory(self, trajectory):
+        if len(trajectory) < 2):
+            return None
+        xdiff = numpy.sign(trajectory[-1][0] - trajectory[-2][0])
+        ydiff = numpy.sign(trajectory[-1][1] - trajectory[-2][1])
+        return { -1 : { 0: 'w', -1: 'nw', 1: 'sw' },
+                  0 : { 0: 'c', -1: 'n',  1: 's' },
+                  1 : { 0: 'e', -1: 'ne', 1: 'se' } }[xdiff][ydiff]
+            
+
+    def decide_if_cat_has_prey(self, image, trajectory):
+        direction = self.determine_trajectory(trajectory)
         return False
 
     def reset(self):
         self._current_event = -1
         self._motions = []
         self._images = []
+        self._trajectory = []
         self._message_state = MessageStates.waiting
         self._cat_state = CatStates.waiting
 
@@ -90,8 +103,9 @@ class CatDetector(object):
         if not len(self._images):
             return 'cannot process image as there are none in the list'
         img = self._images[-1]
+        motion = self._motions[-1]
         if self._cat_state != CatStates.cat_arriving:
-            detected = self.evaluate_image(img)
+            detected = self.evaluate_motion_and_image(motion=motion, image=img)
             if detected == 0:
                 self._cat_state = CatStates.no_cat_arriving
             elif detected == 1:
@@ -101,7 +115,7 @@ class CatDetector(object):
             elif detected == 3:
                 self._cat_state = CatStates.cat_arriving
         if self._cat_state == CatStates.cat_arriving:
-            has_prey = self.decide_if_cat_has_prey(img)
+            has_prey = self.decide_if_cat_has_prey(image=img, trajectory=self._trajectory)
             if has_prey:
                 # TODO: lock cat flap and set a timer to unlock it
                 return 'event {0} image {1}: should lock cat flap '.format(
@@ -133,8 +147,21 @@ class CatDetector(object):
         else:
             return 'got image but no motion event'
 
-    def evaluate_image(self, img):
-        cur = cv2.cvtColor(self._images[-1], cv2.COLOR_BGR2GRAY)
+    def evaluate_motion_and_image(self, motion, image):
+        if motion is None:
+            return self.evaluate_image(image)
+        (pxcount, width, height, x, y) = motion
+        left = round(x - width/2)
+        right = round(x + width/2)
+        top = round(height - y)
+        bottom = round(height + y)
+        features = np.ndarray((1, 4), dtype=np.float32,
+                buffer=np.array((left, right, top, bottom), dtype=np.float32))
+        retval, _ = self._statModel.predict(features)
+        return int(retval)
+
+    def evaluate_image(self, image):
+        cur = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         ret, cur = cv2.threshold(cur, 127, 255, cv2.THRESH_BINARY)
         cur = cv2.Canny(cur, 100, 200, 3)
         lines = cv2.HoughLinesP(cur, 1, np.pi/180, 40, 25, 35)
@@ -150,7 +177,8 @@ class CatDetector(object):
             right = max(right, p[0], p[2])
             top = min(top, p[1], p[3])
             bottom = max(bottom, p[1], p[3])
-        features = np.ndarray((1, 4), dtype=np.float32, buffer=np.array((left, right, top, bottom), dtype=np.float32))
+        features = np.ndarray((1, 4), dtype=np.float32,
+                buffer=np.array((left, right, top, bottom), dtype=np.float32))
         retval, _ = self._statModel.predict(features)
         return int(retval)
 
@@ -160,12 +188,11 @@ class CatDetector(object):
         # event, most of the time.
         # (pxcount, width, height, x, y) = params
         self._motions.append(params)
+        self._trajectory.append((params[3], params[4]))
         if self._message_state == MessageStates.got_image:
-            # This is weird, got motion after image? Not sure how to pair this
-            # event up, is it ok to match it with the last image received?
+            # may want to check timestamps as well?
             self._message_state = MessageStates.got_image_and_motion
-            return 'motion before image?'
-            # return self.process_image_and_motion()
+            return self.process_image_and_motion()
         elif self._message_state == MessageStates.waiting:
             self._message_state = MessageStates.got_motion
             return 'motion: {0}'.format(params)
