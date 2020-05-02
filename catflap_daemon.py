@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 from datetime import datetime
-from cat_detector import CatDetector
+import cat_detector 
 from trainer import Trainer
 
 class UDPServerProtocol(asyncio.DatagramProtocol):
@@ -77,7 +77,9 @@ if __name__ == "__main__":
         print('Bringing up udp server ...', flush=True)
         server, _ = loop.run_until_complete(connect)
         print('Listening on port %d' % args.port, flush=True)
-    detector = CatDetector(args.statmodel, args.labelfile)
+    cat_detector.CatDetector.setupCatDetector(modelfile=args.statmodel,
+        trainingfile=args.labelfile)
+    detector = cat_detector.CatDetector.makeCatDetector()
     print('made a cat detector', flush=True)
     task = asyncio.ensure_future(motion_worker(motion_queue, detector))
     # Alternative, less low-level.
