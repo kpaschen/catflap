@@ -86,14 +86,15 @@ class imageExplorer:
         self.coords = (left, right, top, bottom)
         print('left %d, right %d, top %d, bottom %d' % (left, right, top, bottom))
         
-    def exploreImage(self, img, snap=None):
+    def exploreImage(self, img, snap=None, motion=None):
         self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         if snap is not None:
             self.snap = cv2.cvtColor(snap, cv2.COLOR_BGR2GRAY)
         else:
             self.snap = None
+        self.motion = motion
         cv2.imshow(self.windowName, self.cur)
-        print('shell: q to quit, c canny, h find lines with hough, t threshold, '
+        print('shell: q to quit, b motion box, c canny, h find lines with hough, t threshold, '
               'o contours, s subtract snapshot, x extract roi, + zoom in, '
               '- zoom out, r reset')
 
@@ -108,6 +109,20 @@ class imageExplorer:
           elif pressed == 45: # - for zoom out
               self.cur = cv2.resize(self.cur, None, fx=0.8, fy=0.8, interpolation=cv2.INTER_CUBIC) 
               cv2.imshow(self.windowName, self.cur)
+          elif pressed == 98: # 'b' for motion box
+              if self.motion is None:
+                  print('no motion, no box')
+              else:
+                  left = self.motion[3] - self.motion[1]/2
+                  right = self.motion[3] + self.motion[1]/2
+                  top = self.motion[4] - self.motion[2]/2
+                  bottom = self.motion[4] + self.motion[2]/2
+                  self.coords = (left, right, top, bottom)
+                  topleft = (int(left), int(top))
+                  bottomright = (int(right), int(bottom))
+                  self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
+                  cv2.rectangle(self.colour, topleft, bottomright, (0, 0, 255), 1)
+                  cv2.imshow(self.windowName, self.colour)
           elif pressed == 99: # 'c' for canny
             self.cur = cv2.Canny(self.cur, self.cannyMin, self.cannyMax, self.cannyAperture)
             cv2.imshow(self.windowName, self.cur)
@@ -137,7 +152,7 @@ class imageExplorer:
             elif label == 119:
                 descstr = 'not sure what exactly'
             else: descstr = 'an unknown object'
-            coordstr = ','.join(str(x) for x in self.coords) if self.coords else 'unknown'
+            coordstr = ','.join(str(int(x)) for x in self.coords) if self.coords else 'unknown'
             print('image %s shows %s at %s' % (self.filename, descstr, coordstr))
             self.labelfile.write('%s,%s,%s\n' % (self.filename, descstr, coordstr ))
           elif pressed == 111: # 'o' for contours
@@ -169,20 +184,21 @@ class imageExplorer:
                   print('need to find a rectangle roi first')
               else:
                   gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                  y1 = min(self.coords[2], self.coords[3])
+                  y1 = int(min(self.coords[2], self.coords[3]))
                   if y1 >= 20:
                       y1 -= 20
                   else:
                       y1 = 0
-                  y2 = max(self.coords[2], self.coords[3])
+                  y2 = int(max(self.coords[2], self.coords[3]))
                   y2 += 20
-                  x1 = min(self.coords[0], self.coords[1])
-                  x2 = max(self.coords[0], self.coords[1])
+                  x1 = int(min(self.coords[0], self.coords[1]))
+                  x2 = int(max(self.coords[0], self.coords[1]))
                   if x1 >= 20:
                       x1 -= 20
                   else:
                       x1 = 0
                   x2 += 20
+                  print('coords for subimage: %d %d %d %d' % (x1, x2, y1, y2))
                   self.cur = gray[y1:y2, x1:x2]
                   cv2.imshow(self.windowName, self.cur)
 
