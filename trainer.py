@@ -1,11 +1,13 @@
 import cv2
 import numpy as np
+import os
 import re
 
 class Trainer(object):
     def __init__(self):
         self.features = []
         self.labels = []
+        self.filenames = []
         self.knn_model = None
         self.dtree_model = None
 
@@ -27,7 +29,7 @@ class Trainer(object):
         elif label == 2:
             return 'cat leaving'
         elif label == 1:
-            return 'not sure'
+            return 'not sure what exactly'
         elif label == 0:
             return 'no cat'
 
@@ -54,6 +56,7 @@ class Trainer(object):
         self.labels.append(self.label_for_string(label))
         self.features.append([np.float32(int(c)) for c in coords])
 
+
     def trainClassifier(self):
         samples, labels = self.makeTrainingData()
         # Removing the dtree model for now because I get a core dump when I try to train.
@@ -64,7 +67,7 @@ class Trainer(object):
         #self.dtree_model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
         #print('dtree model trained')
         self.knn_model = cv2.ml.KNearest_create()
-        self.knn_model.setDefaultK(2)
+        self.knn_model.setDefaultK(3)
         samples, labels = self.makeTrainingData()
         self.knn_model.train(samples=samples, layout=cv2.ml.ROW_SAMPLE, responses=labels)
         print('knn model trained')
@@ -94,33 +97,31 @@ class Trainer(object):
             self.dtree_model = cv2.ml.DTRees_load(dtree_file)
 
     def testClassifier(self):
-        if not self.dtree_model and not self.knn_model:
+        if not self.knn_model:
             print('You have to train a model first')
             return
         featurecount=len(self.features)
-        confmatrix_dtree = np.zeros((4,4), dtype=np.int32)
         confmatrix_knn = np.zeros((4,4), dtype=np.int32)
-        goodcount_dtree = 0
         goodcount_knn = 0
         for index, sample in enumerate(self.features):
           f = np.ndarray((1, 4), dtype=np.float32, buffer=np.array(sample, dtype=np.float32))
-          if self.dtree_model:
-              retval, results = self.dtree_model.predict(f)
-              expected = self.labels[index]
-              confmatrix_dtree[int(retval)][int(expected)] += 1
-              if expected == retval:
-                  goodcount_dtree += 1
-              print('dtree performance: {0} out of {1} = {2}'.format(
-                  goodcount_dtree, featurecount, (float)(goodcount_dtree)/featurecount))
-              print('dtree confusion matrix:\n ', confmatrix_dtree)
           if self.knn_model:
-              retval, results = self.knn_model.predict(f)
+              retval, _ = self.knn_model.predict(f)
               expected = self.labels[index]
-              confmatrix_knn[int(retval)][int(expected)] += 1
+              r = int(retval)
+              confmatrix_knn[r][int(expected)] += 1
               if expected == retval:
                   goodcount_knn += 1
-              print('knn performance: {0} out of {1} = {2}'.format(
-                  goodcount_knn, featurecount, (float)(goodcount_knn)/featurecount))
-              print('knn confusion matrix:\n ', confmatrix_knn)
+              else:
+                  print('index {0} expected {1} got {2}'.format(index, expected, r))
+        print('knn performance: {0} out of {1} = {2}'.format(
+            goodcount_knn, featurecount, (float)(goodcount_knn)/featurecount))
+        print('knn confusion matrix:\n ', confmatrix_knn)
+
+    def testModel(self, coords):
+          f = np.ndarray((1, 4), dtype=np.float32, buffer=np.array(coords, dtype=np.float32))
+          retval, _ = self.knn_model.predict(f)
+          return retval
+        
 
 

@@ -3,7 +3,7 @@
 opencv_ml_knn:
    format: 3
    is_classifier: 1
-   default_k: 2
+   default_k: 3
    samples: !!opencv-matrix
       rows: 473
       cols: 4

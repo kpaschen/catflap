@@ -5,7 +5,7 @@ from trainer import Trainer
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser('view camera images')
-  parser.add_argument('--labelfile', default='/tmp/catlabels.csv', help='Training data')
+  parser.add_argument('--labelfile', default=None, help='Training data')
   parser.add_argument('--testfile', default=None, help='Test data')
   # If training, models will be written to this file.
   # For testing, models will be loaded from this file.
@@ -36,7 +36,8 @@ if __name__ == "__main__":
           trainer.saveModels(args.modelfile)
 
   if testing:
-      if not trainer.model:
+      if trainer.knn_model is None:
+          print('need to make a knn model')
           if not args.modelfile:
               print('Need to train a model or load one')
               exit
@@ -47,10 +48,14 @@ if __name__ == "__main__":
               parts = l.split(',')
               if parts[0] == 'filename': # header line
                   continue
-              if parts[2] == 'unknown':
+              if len(parts) < 6:
                   continue
               coords = (parts[2],parts[3],parts[4],parts[5])
-              print('For coords {0} expecting label {1}'.format(coords, parts[1]))
-              trainer.testModel(coords=(parts[2],parts[3],parts[4],parts[5]))
+              result = trainer.testModel(coords=(parts[2],parts[3],parts[4],parts[5]))
+              reslabel = trainer.string_for_label(int(result))
+              if parts[1] == reslabel:
+                  continue
+              print('File {0} coords {1} expecting label {2} and got {3}'.format(
+                  parts[0], coords, parts[1], reslabel))
 
 
