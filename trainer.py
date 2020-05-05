@@ -110,17 +110,17 @@ class Trainer(object):
               confmatrix_dtree[int(retval)][int(expected)] += 1
               if expected == retval:
                   goodcount_dtree += 1
-          print('dtree performance: {0} out of {1} = {2}'.format(
-              goodcount_dtree, featurecount, (float)(goodcount_dtree)/featurecount))
-          print('dtree confusion matrix:\n ', confmatrix_dtree)
+              print('dtree performance: {0} out of {1} = {2}'.format(
+                  goodcount_dtree, featurecount, (float)(goodcount_dtree)/featurecount))
+              print('dtree confusion matrix:\n ', confmatrix_dtree)
           if self.knn_model:
               retval, results = self.knn_model.predict(f)
               expected = self.labels[index]
               confmatrix_knn[int(retval)][int(expected)] += 1
               if expected == retval:
                   goodcount_knn += 1
-          print('knn performance: {0} out of {1} = {2}'.format(
-              goodcount_knn, featurecount, (float)(goodcount_knn)/featurecount))
-          print('knn confusion matrix:\n ', confmatrix_knn)
+              print('knn performance: {0} out of {1} = {2}'.format(
+                  goodcount_knn, featurecount, (float)(goodcount_knn)/featurecount))
+              print('knn confusion matrix:\n ', confmatrix_knn)
 
 
