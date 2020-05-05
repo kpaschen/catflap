@@ -4,10 +4,11 @@ from datetime import date, datetime
 import os
 
 import events_from_log
+from cat_detector import CatDetector
 from explorer import imageExplorer
 
 
-def show_image(imagedir, events, snapshots, idx, labelfile):
+def show_image(imagedir, events, snapshots, idx, detector, labelfile):
   if idx not in events:
     print('no event %s in list' % idx)
     return
@@ -17,6 +18,7 @@ def show_image(imagedir, events, snapshots, idx, labelfile):
     print('failed to find image at %s' % imagedir + events[idx][i]['filename'], flush=True)
   ev = events[idx][i]
   motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
+  previous_motion = None
   print('motion for this image: %s' % (motion,))
   windowname = idx
   cv2.imshow(windowname, img)
@@ -37,6 +39,9 @@ def show_image(imagedir, events, snapshots, idx, labelfile):
       else:
          i += 1
          ev = events[idx][i]
+         previous_motion = motion
+         motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
+         print('motion for this image: %s' % (motion,))
     elif pressed == 81: # cursor left
       if i == 0:
         print('at first image')
@@ -44,9 +49,17 @@ def show_image(imagedir, events, snapshots, idx, labelfile):
       else:
          i -= 1
          ev = events[idx][i]
+         previous_motion = motion
+         motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
+    elif pressed == 112: # 'p'
+      if detector is None:
+          print('you need a cat detector for this')
+      else:
+          retval = detector.evaluate_motion_and_image(motion, img)
+          print('detector says: %s' % retval)
     elif pressed == 120: # 'x'
-      xp = imageExplorer(ev['filename'], labelfile)
-      xp.exploreImage(img, snap, motion)
+      xp = imageExplorer(ev['filename'], detector, labelfile)
+      xp.exploreImage(img, snap, motion, previous_motion)
     else:
       break
     print('showing image %d of %d' % (i, len(events[idx])))
@@ -62,6 +75,7 @@ if __name__ == "__main__":
   parser.add_argument('--images', default='./images/', help='Where your image files are')
   parser.add_argument('--labelfile', default='/tmp/catlabels.csv', help='Where to write labels')
   parser.add_argument('--daemonlog', default='./daemonlog', help='File with cat flap daemon log messages')
+  parser.add_argument('--modelfile', default=None, help='File to load model from')
   args = parser.parse_args()
   date_to_show = None
   if not args.date:
@@ -83,6 +97,10 @@ if __name__ == "__main__":
      if not os.path.exists(args.labelfile):
          with open(args.labelfile, 'w') as labelfile:
              labelfile.write('filename,action,left,right,top,bottom')
+     cat_detector = None
+     if args.modelfile is not None:
+         CatDetector.setupCatDetector(args.modelfile, None)
+         cat_detector = CatDetector.makeCatDetector()
      with open(args.labelfile, 'a') as labelfile:
-         show_image(args.images, daemon_events, snapshots, args.idx, labelfile)
+         show_image(args.images, daemon_events, snapshots, args.idx, cat_detector, labelfile)
     

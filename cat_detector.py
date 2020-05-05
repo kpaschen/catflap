@@ -23,7 +23,6 @@ class CatStates(Enum):
 
 
 class CatDetector(object):
-
     statModel = None
 
     @classmethod
@@ -80,18 +79,20 @@ class CatDetector(object):
         else:
             return 'Failed to load snapshot from {0}'.format(filename)
 
-    def determine_trajectory(self):
-        if len(self._trajectory) < 2:
-            return None
-        xdiff = np.sign(self._trajectory[-1][0] - self._trajectory[-2][0])
-        ydiff = np.sign(self._trajectory[-1][1] - self._trajectory[-2][1])
+    def determine_trajectory(self, t1=None, t2=None):
+        if t1 is None and t2 is None:
+            if len(self._trajectory) < 2:
+                return None
+            t1 = self._trajectory[-1]
+            t2 = self._trajectory[-2]
+        xdiff = np.sign(t1[0] - t2[0])
+        ydiff = np.sign(t1[1] - t2[1])
         return { -1 : { 0: 'w', -1: 'nw', 1: 'sw' },
                   0 : { 0: 'c', -1: 'n',  1: 's' },
                   1 : { 0: 'e', -1: 'ne', 1: 'se' } }[xdiff][ydiff]
             
 
     def decide_if_cat_has_prey(self, image, trajectory):
-        direction = self.determine_trajectory()
         return False
 
     def reset(self):
@@ -151,7 +152,6 @@ class CatDetector(object):
             # If reset() hasn't been called, it's possible this is a new
             # event following quickly after another event. Sometimes the
             # cats sit about in front of the cat flap for a while.
-            print('reset to waiting state because new event starts')
             self._current_event = int(parts[0])
             self._cat_state = CatStates.waiting
         self._images.append(img)

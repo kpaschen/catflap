@@ -33,7 +33,7 @@ class imageExplorer:
     def onCannyMax(self, x):
         self.cannyMax = x
 
-    def __init__(self, filename, labelfile):
+    def __init__(self, filename, cat_detector, labelfile):
         self.windowName = 'Processed image'
         self.cannyAperture = 3
         self.cannyMin = 100
@@ -47,6 +47,7 @@ class imageExplorer:
         self.filename = filename
         self.coords = None
         self.labelfile = labelfile
+        self.cat_detector = cat_detector
         cv2.namedWindow(self.windowName)
         cv2.createTrackbar('Canny aperture size', self.windowName, self.cannyAperture, 9, self.onCannyTrackbar)
         cv2.createTrackbar('Canny min', self.windowName, self.cannyMin, 200, self.onCannyMin)
@@ -66,32 +67,25 @@ class imageExplorer:
         for points in lines:
             print(points[0])
             p = points[0]
-            if p[0] < left:
-                left = p[0]
-            if p[0] > right:
-                right = p[0]
-            if p[1] < top:
-                top = p[1]
-            if p[1] > bottom:
-                bottom = p[1]
-            if p[2] > right:
-                right = p[2]
-            if p[2] < left:
-                left = p[2] 
-            if p[3] > bottom:
-                bottom = p[3]
-            if p[3] < top:
-                top = p[3]
+            left = min(left, p[0], p[2])
+            right = max(right, p[0], p[2])
+            top = min(top, p[1], p[3])
+            bottom = max(bottom, p[1], p[3])
             cv2.line(img, (p[0],p[1]), (p[2],p[3]), (0, 0, 255), 1)
         self.coords = (left, right, top, bottom)
         print('left %d, right %d, top %d, bottom %d' % (left, right, top, bottom))
         
-    def exploreImage(self, img, snap=None, motion=None):
+    def exploreImage(self, img, snap=None, motion=None, previous_motion=None):
         self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         if snap is not None:
             self.snap = cv2.cvtColor(snap, cv2.COLOR_BGR2GRAY)
         else:
             self.snap = None
+        trajectory = None
+        if self.cat_detector is not None and previous_motion is not None:
+            trajectory = self.cat_detector.determine_trajectory((motion[3], motion[4]),
+                    (previous_motion[3], previous_motion[4]))
+            print('trajectory: %s' % trajectory)
         self.motion = motion
         cv2.imshow(self.windowName, self.cur)
         print('shell: q to quit, b motion box, c canny, h find lines with hough, t threshold, '
@@ -140,6 +134,12 @@ class imageExplorer:
                 self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
                 self.drawLinesOnImg(lines, self.colour)
                 cv2.imshow(self.windowName, self.colour)
+          elif pressed == 107: # 'k' for head
+              if self.coords is None:
+                  print('you need box coordinates for this')
+              else:
+                  if trajectory is not None:
+                      print('using %s corner for box' % trajectory)
           elif pressed == 108: # 'l' for label
             print('cat (a)rriving, (l)eaving, (n)o cat, (w)ait for next image?')
             label = cv2.waitKey(0)
@@ -166,6 +166,12 @@ class imageExplorer:
                   # self.colour = cv2.drawContours(self.colour, contours, index, (0, 255, 0), 1)
                   self.colour = cv2.rectangle(self.colour, (x1,y1), (x2,y2), (0, 255, 0), 1)
             cv2.imshow(self.windowName, self.colour)
+          elif pressed == 112: # 'p' for predict
+              if self.cat_detector is None:
+                  print('you need a cat detector for that')
+              else:
+                  retval = self.cat_detector.evaluate_motion_and_image(self.motion, self.cur)
+                  print('detector says %s' % retval)
           elif pressed == 114: # 'r' for reset
             self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             cv2.imshow(self.windowName, self.cur)
