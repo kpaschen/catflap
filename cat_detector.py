@@ -151,7 +151,9 @@ class CatDetector(object):
             # If reset() hasn't been called, it's possible this is a new
             # event following quickly after another event. Sometimes the
             # cats sit about in front of the cat flap for a while.
+            print('reset to waiting state because new event starts')
             self._current_event = int(parts[0])
+            self._cat_state = CatStates.waiting
         self._images.append(img)
         if self._message_state == MessageStates.got_image_and_motion:
             return self.process_image_and_motion()
