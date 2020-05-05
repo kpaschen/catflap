@@ -109,7 +109,7 @@ class Trainer(object):
               retval, _ = self.knn_model.predict(f)
               expected = self.labels[index]
               r = int(retval)
-              confmatrix_knn[r][int(expected)] += 1
+              confmatrix_knn[int(expected)][r] += 1
               if expected == retval:
                   goodcount_knn += 1
               else:
