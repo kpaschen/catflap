@@ -2,8 +2,6 @@ import argparse
 import cv2
 from datetime import date, datetime
 import os
-import re
-import sys
 
 import events_from_log
 from explorer import imageExplorer
@@ -68,7 +66,7 @@ if __name__ == "__main__":
   date_to_show = None
   if not args.date:
       with open(args.daemonlog) as daemonfile:
-          daemon_events, _ = events_from_log.daemonlog_datelist(daemonfile)
+          daemon_events = events_from_log.daemonlog_datelist(daemonfile)
           print(daemon_events)
           exit()
   elif args.date == 'today':
