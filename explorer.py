@@ -48,6 +48,38 @@ class imageExplorer:
         self.coords = None
         self.labelfile = labelfile
         self.cat_detector = cat_detector
+        self.cascades = {}
+        self.cascade_colours = {}
+        for cascade_name in [
+                'frontalface_default',
+                'frontalcatface_extended',
+                'profileface',
+                'eye'
+                ]:
+            c = cv2.CascadeClassifier()
+            if c.load(cv2.samples.findFile(cv2.data.haarcascades + 'haarcascade_' + cascade_name + '.xml')):
+                self.cascades[cascade_name] = c
+                self.cascade_colours[cascade_name] = (255, 0, 0)
+            else:
+                print('failed to load cascade for %s' % cascade_name)
+        c = cv2.CascadeClassifier()
+        if c.load(cv2.samples.findFile('./cascades/cat-arriving/cascade.xml')):
+            self.cascades['localcats'] = c
+            self.cascade_colours['localcats'] = (0, 255, 0)
+        else:
+            print('failed to load local cascade from ./cascades/cat-arriving/cascade.xml')
+        c2 = cv2.CascadeClassifier()
+        if c2.load(cv2.samples.findFile('./cascades/cat-head-full/cascade.xml')):
+            self.cascades['catfaces'] = c2
+            self.cascade_colours['catfaces'] = (0, 0, 255)
+        else:
+            print('failed to load local cascade from ./cascades/cat-head-full/cascade.xml')
+        c3 = cv2.CascadeClassifier()
+        if c3.load(cv2.samples.findFile('./cascades/cat-head-focus/cascade.xml')):
+            self.cascades['catfaces-focus'] = c3
+            self.cascade_colours['catfaces-focus'] = (0, 0, 0)
+        else:
+            print('failed to load local cascade from ./cascades/cat-head-focus/cascade.xml')
         cv2.namedWindow(self.windowName)
         cv2.createTrackbar('Canny aperture size', self.windowName, self.cannyAperture, 9, self.onCannyTrackbar)
         cv2.createTrackbar('Canny min', self.windowName, self.cannyMin, 200, self.onCannyMin)
@@ -58,6 +90,30 @@ class imageExplorer:
         cv2.createTrackbar('Hough distance', self.windowName, self.houghDistanceResolution, 10, self.onHoughDistTrackbar)
         cv2.createTrackbar('Hough angle', self.windowName, self.houghAngleResolution, 90, self.onHoughDistTrackbar)
         cv2.createTrackbar('Contour min size', self.windowName, self.contourMinSize, 2000, self.onContourMinSize)
+
+    def shift_coords(self, coords, direction):
+        fudge = 10
+        if direction == 'n':
+            return (coords[0], coords[1], coords[2] - fudge, coords[3])
+        if direction == 's':
+            return (coords[0], coords[1], coords[2], coords[3] + fudge)
+        if direction == 'w':
+            return (coords[0] - fudge, coords[1], coords[2], coords[3])
+        if direction == 'e':
+            return (coords[0], coords[1] + fudge, coords[2], coords[3])
+        if direction == 'ne':
+            x = self.shift_coords(coords, 'n')
+            return self.shift_coords(x, 'e')
+        if direction == 'nw':
+            x = self.shift_coords(coords, 'n')
+            return self.shift_coords(x, 'w')
+        if direction =='se':
+            x = self.shift_coords(coords, 's')
+            return self.shift_coords(x, 'e')
+        if direction =='sw':
+            x = self.shift_coords(coords, 's')
+            return self.shift_coords(x, 'w')
+        return coords
 
     def drawLinesOnImg(self, lines, img):
         left = 400
@@ -123,6 +179,19 @@ class imageExplorer:
           elif pressed == 101: # 'e' equalizeHist
             self.cur = cv2.equalizeHist(self.cur)
             cv2.imshow(self.windowName, self.cur)
+          elif pressed == 102: # 'f' for classification with haar
+              # recommend equalizeHist before running this
+              self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
+              for name, cascade in self.cascades.items():
+                  c = cascade.detectMultiScale(self.cur)
+                  print('cascade %s detected %s' % (name, c))
+                  if len(c):
+                      colour = self.cascade_colours[name]
+                      for (x,y,w,h) in c:
+                          center = (x + w//2, y + h//2)
+                          frame = cv2.ellipse(self.colour, center, (w//2, h//2), 0, 0, 360, colour, 1)
+                      cv2.imshow(self.windowName, self.colour)
+
           elif pressed == 104: # 'h' for hough
             angleres = (self.houghAngleResolution * np.pi)/180
             lines = cv2.HoughLinesP(self.cur, self.houghDistanceResolution, angleres, self.houghStrength, self.houghMinLL, self.houghMaxLG)
@@ -140,6 +209,13 @@ class imageExplorer:
               else:
                   if trajectory is not None:
                       print('using %s corner for box' % trajectory)
+                      box = self.shift_coords(self.coords, trajectory)
+                      topleft = (int(box[0]), int(box[2]))
+                      bottomright = (int(box[1]), int(box[3]))
+                      self.coords = box
+                      self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
+                      cv2.rectangle(self.colour, topleft, bottomright, (255, 0, 0), 1)
+                      cv2.imshow(self.windowName, self.colour)
           elif pressed == 108: # 'l' for label
             print('cat (a)rriving, (l)eaving, (n)o cat, (w)ait for next image?')
             label = cv2.waitKey(0)
@@ -155,16 +231,22 @@ class imageExplorer:
             coordstr = ','.join(str(int(x)) for x in self.coords) if self.coords else 'unknown'
             print('image %s shows %s at %s' % (self.filename, descstr, coordstr))
             self.labelfile.write('%s,%s,%s\n' % (self.filename, descstr, coordstr ))
+          elif pressed == 110: # 'n' for snapshot
+              f = './imageextracts/' + '{0}-modified.jpg'.format(self.filename)
+              self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
+              cv2.imwrite(f, self.colour)
+              print('saved image to %s' % f)
           elif pressed == 111: # 'o' for contours
             contours, hierarchy = cv2.findContours(self.cur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
-            for index, c in enumerate(contours):
-                ar = cv2.contourArea(c)
-                if ar >= self.contourMinSize:
-                  print('area of contour %d is %f' % (index, ar))
-                  (x1,y1,x2,y2) = cv2.boundingRect(c)
-                  # self.colour = cv2.drawContours(self.colour, contours, index, (0, 255, 0), 1)
-                  self.colour = cv2.rectangle(self.colour, (x1,y1), (x2,y2), (0, 255, 0), 1)
+            self.colour = cv2.drawContours(self.colour, contours, -1, (0, 255, 0), 1)
+            #for index, c in enumerate(contours):
+            #    ar = cv2.contourArea(c)
+            #    if ar >= self.contourMinSize:
+            #      print('area of contour %d is %f' % (index, ar))
+            #      (x1,y1,x2,y2) = cv2.boundingRect(c)
+            #      # self.colour = cv2.drawContours(self.colour, contours, index, (0, 255, 0), 1)
+            #      self.colour = cv2.rectangle(self.colour, (x1,y1), (x2,y2), (0, 255, 0), 1)
             cv2.imshow(self.windowName, self.colour)
           elif pressed == 112: # 'p' for predict
               if self.cat_detector is None:
