@@ -91,7 +91,7 @@ if __name__ == "__main__":
   with open(args.daemonlog) as daemonfile:
       daemon_events, snapshots = events_from_log.daemonlog_events_for_date(daemonfile, date_to_show)
   if args.idx is None:
-      for event_id, events in daemon_events.items():
+      for event_id, events in sorted(daemon_events.items()):
           print('event_id: %s started at %s' % (event_id, events[0]['motiontime']))
   else:
      if not os.path.exists(args.labelfile):
