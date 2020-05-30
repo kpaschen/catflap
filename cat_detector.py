@@ -61,6 +61,7 @@ class CatDetector(object):
         self.motionpattern = re.compile(
           'motion detected: (\d+) changed pixels (\d+) x (\d+) at (\d+) (\d+)')
         self._statModel = statModel
+        self.base_resolution = (240.0, 320.0)
 
 
     # TODO: all the file reading operations should probably be done
@@ -168,6 +169,18 @@ class CatDetector(object):
         right = round(x + width/2)
         top = round(height - y)
         bottom = round(height + y)
+        print('motion translated to raw coordinates: %s %s %s %s' % (left, right, top, bottom))
+        if image is not None:
+            imgwidth, imgheight, _ = image.shape
+            print('image has width %d and height %d' % (imgwidth, imgheight))
+            width_factor = self.base_resolution[0] / imgwidth
+            height_factor = self.base_resolution[1] / imgheight
+            print('width factor %f height %f' % (width_factor, height_factor))
+            left = left * width_factor
+            right = right * width_factor
+            top = height * height_factor
+            bottom = bottom * height_factor
+        print('motion coordinates normalised: %s %s %s %s' % (left, right, top, bottom))
         features = np.ndarray((1, 4), dtype=np.float32,
                 buffer=np.array((left, right, top, bottom), dtype=np.float32))
         retval, _ = self._statModel.predict(features)
@@ -180,9 +193,12 @@ class CatDetector(object):
         lines = cv2.HoughLinesP(cur, 1, np.pi/180, 40, 25, 35)
         if lines is None or not len(lines):
             return 'no lines found on image'
-        left = 400
+        imgwidth, imgheight, _ = image.shape
+        width_factor = self.base_resolution[0] / imgwidth
+        height_factor = self.base_resolution[1] / imgheight
+        left = imgwidth
         right = 0
-        top = 240
+        top = imgheight
         bottom = 0
         for points in lines:
             p = points[0]
@@ -190,6 +206,10 @@ class CatDetector(object):
             right = max(right, p[0], p[2])
             top = min(top, p[1], p[3])
             bottom = max(bottom, p[1], p[3])
+        left = left * width_factor
+        right = right * width_factor
+        top = height * height_factor
+        bottom = bottom * height_factor
         features = np.ndarray((1, 4), dtype=np.float32,
                 buffer=np.array((left, right, top, bottom), dtype=np.float32))
         retval, _ = self._statModel.predict(features)

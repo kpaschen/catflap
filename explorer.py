@@ -50,6 +50,8 @@ class imageExplorer:
         self.cat_detector = cat_detector
         self.cascades = {}
         self.cascade_colours = {}
+        # All training data is relative to this resolution.
+        self.base_resolution = (240.0, 320.0)
         for cascade_name in [
                 'frontalface_default',
                 'frontalcatface_extended',
@@ -116,9 +118,10 @@ class imageExplorer:
         return coords
 
     def drawLinesOnImg(self, lines, img):
-        left = 400
+        w, h, _ = img.shape
+        left = w
         right = 0
-        top = 240
+        top = h
         bottom = 0
         for points in lines:
             print(points[0])
@@ -183,7 +186,7 @@ class imageExplorer:
               # recommend equalizeHist before running this
               self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
               for name, cascade in self.cascades.items():
-                  c = cascade.detectMultiScale(self.cur)
+                  c = cascade.detectMultiScale(self.cur, minNeighbors=20)
                   print('cascade %s detected %s' % (name, c))
                   if len(c):
                       colour = self.cascade_colours[name]
@@ -228,9 +231,34 @@ class imageExplorer:
             elif label == 119:
                 descstr = 'not sure what exactly'
             else: descstr = 'an unknown object'
-            coordstr = ','.join(str(int(x)) for x in self.coords) if self.coords else 'unknown'
+            coordstr = 'unknown'
+            if self.coords:
+                w, h, _ = self.cur.shape
+                width_factor = self.base_resolution[0]/w
+                height_factor = self.base_resolution[1]/h
+                normalised_coords = (self.coords[0] * width_factor,
+                        self.coords[1] * width_factor,
+                        self.coords[2] * height_factor,
+                        self.coords[3] * height_factor)
+                coordstr = ','.join(str(int(x)) for x in normalised_coords)
             print('image %s shows %s at %s' % (self.filename, descstr, coordstr))
-            self.labelfile.write('%s,%s,%s\n' % (self.filename, descstr, coordstr ))
+            self.labelfile.write('%s,%s,%s\n' % (self.filename, descstr, coordstr))
+          elif pressed == 109: # 'm' for mog2 background subtraction
+              print('109: mog2')
+              if self.snap is None:
+                  print('Need a snapshot for this')
+              else:
+                  backsub = cv2.createBackgroundSubtractorMOG2()
+                  # KNN just gets me a blank image
+                  # backsub = cv2.createBackgroundSubtractorKNN()
+
+                  # This adds just one background snapshot, might work better
+                  # if I use several plus if I pre-process them all the same way
+                  # (e.g. equalize hist)
+                  backsub.apply(self.snap)
+                  fgmask = backsub.apply(self.cur)
+                  print('got here')
+                  cv2.imshow(self.windowName, fgmask)
           elif pressed == 110: # 'n' for snapshot
               f = './imageextracts/' + '{0}-modified.jpg'.format(self.filename)
               self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
@@ -258,6 +286,7 @@ class imageExplorer:
             self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             cv2.imshow(self.windowName, self.cur)
           elif pressed == 115: # 's' for subtract snapshot
+            # This is 'naive' background subtraction, also try  'm' for mog2
             if self.snap is not None:
                 self.cur = cv2.absdiff(self.cur, self.snap)
                 cv2.imshow(self.windowName, self.cur)
@@ -265,7 +294,11 @@ class imageExplorer:
                 print('no snapshot provided')
           elif pressed == 116: # 't' for threshold
             # Non-adaptive, but seems to do reasonably well?
+            # Can invert this for better contour finding (pass 1 as last param, or THRESH_BINARY_INV)
             ret, self.cur = cv2.threshold(self.cur, 127, 255, cv2.THRESH_BINARY)
+            cv2.imshow(self.windowName, self.cur)
+          elif pressed == 117: # 'u' for inverted threshold
+            ret, self.cur = cv2.threshold(self.cur, 127, 255, cv2.THRESH_BINARY_INV)
             cv2.imshow(self.windowName, self.cur)
           elif pressed == 120: # 'x' for extract
               if self.coords is None:

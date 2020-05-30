@@ -1,2 +1,6 @@
 images/
+daemonlog*
+*.vec
+testimages/
+annotations*
 

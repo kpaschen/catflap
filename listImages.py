@@ -138,8 +138,12 @@ def show_image(imagedir, events, snapshots, idx, detector, labelfile):
          i += 1
          ev = events[idx][i]
          previous_motion = motion
-         motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
-         print('motion for this image: %s' % (motion,))
+         if 'changedpixels' in ev:
+             motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
+             print('motion for this image: %s' % (motion,))
+         else:
+             motion = None
+             print('missing motion for this image')
     elif pressed == 81: # cursor left
       if i == 0:
         print('at first image')
@@ -148,7 +152,12 @@ def show_image(imagedir, events, snapshots, idx, detector, labelfile):
          i -= 1
          ev = events[idx][i]
          previous_motion = motion
-         motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
+         if 'changedpixels' in ev:
+             motion = (ev['changedpixels'], ev['width'], ev['height'], ev['x'], ev['y'])
+             print('motion for this image: %s' % (motion,))
+         else:
+             motion = None
+             print('missing motion for this image')
     elif pressed == 112: # 'p'
       if detector is None:
           print('you need a cat detector for this')
