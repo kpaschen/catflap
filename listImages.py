@@ -201,7 +201,7 @@ if __name__ == "__main__":
           daemon_events, snapshots = events_from_log.daemonlog_events_for_date(daemonfile, date_to_show)
   if args.idx is None and args.picture is None:
       if daemon_events is not None:
-          for event_id, events in daemon_events.items():
+          for event_id, events in sorted(daemon_events.items()):
               print('event_id: %s started at %s' % (event_id, events[0]['motiontime']))
       else:
           list_images(args.images, date_to_show)

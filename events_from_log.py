@@ -113,14 +113,19 @@ def daemonlog_events_for_date(daemonlogfile, date_to_show):
                         # Check if cur_event is more than a minute old.
                         # In that case, this is the first motion message of
                         # a new event.
-                        evtime = hms_to_seconds(cur_event['timeofday'])
-                        thistime = hms_to_seconds(timestamp)
-                        if thistime - evtime < 60:
-                           events[event_id].append(motiondata)
+                        if not 'timeofday' in cur_event:
+                          pending_motion = motiondata
+                          current_event_id = -1
+                          continue
                         else:
-                            pending_motion = motiondata
-                            current_event_id = -1
-                            continue
+                          evtime = hms_to_seconds(cur_event['timeofday'])
+                          thistime = hms_to_seconds(timestamp)
+                          if thistime - evtime < 60:
+                             events[event_id].append(motiondata)
+                          else:
+                              pending_motion = motiondata
+                              current_event_id = -1
+                              continue
                     else:
                         cur_event.update(motiondata)
                 else:
