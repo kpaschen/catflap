@@ -23,7 +23,7 @@ class Trainer(object):
         else:
             return 0
 
-    def string_for_label(self, label):
+    def string_for_label(label):
         if label == 3:
             return 'cat arriving'
         elif label == 2:

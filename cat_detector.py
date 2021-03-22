@@ -186,20 +186,21 @@ class CatDetector(object):
         retval, _ = self._statModel.predict(features)
         return int(retval)
 
-    def evaluate_image(self, image):
+    def get_coords(self, image):
         cur = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         ret, cur = cv2.threshold(cur, 127, 255, cv2.THRESH_BINARY)
         cur = cv2.Canny(cur, 100, 200, 3)
         lines = cv2.HoughLinesP(cur, 1, np.pi/180, 40, 25, 35)
         if lines is None or not len(lines):
-            return 'no lines found on image'
+            print('no lines found on image')
+            return None
         imgwidth, imgheight, _ = image.shape
         width_factor = self.base_resolution[0] / imgwidth
         height_factor = self.base_resolution[1] / imgheight
-        left = imgwidth
-        right = 0
-        top = imgheight
-        bottom = 0
+        left = np.float64(imgwidth)
+        right = np.float64(0.0)
+        top = np.float64(imgheight)
+        bottom = np.float64(0.0)
         for points in lines:
             p = points[0]
             left = min(left, p[0], p[2])
@@ -208,11 +209,23 @@ class CatDetector(object):
             bottom = max(bottom, p[1], p[3])
         left = left * width_factor
         right = right * width_factor
-        top = height * height_factor
+        top = top * height_factor
         bottom = bottom * height_factor
+        print('returning %f %f %f %f' % (left, right, top, bottom))
+        for x in (left, right, top, bottom):
+            print(type(x))
+        return (left, right, top, bottom)
+
+    def evaluate_image(self, image):
+        coords = self.get_coords(image)
+        if coords is None:
+            return 0  # no cat?
+        (left, right, top, bottom) = coords
         features = np.ndarray((1, 4), dtype=np.float32,
                 buffer=np.array((left, right, top, bottom), dtype=np.float32))
+        print('image coordinates normalised: %s %s %s %s' % (left, right, top, bottom))
         retval, _ = self._statModel.predict(features)
+        print('i think this is %s' % Trainer.string_for_label(retval))
         return int(retval)
 
     def motion_detected(self, params):

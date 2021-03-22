@@ -138,6 +138,10 @@ class imageExplorer:
         self.cur = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         if snap is not None:
             self.snap = cv2.cvtColor(snap, cv2.COLOR_BGR2GRAY)
+            if self.snap is None:
+                print("failed to load snapshot provided")
+            else:
+                print("succeeded loading snapshot")
         else:
             self.snap = None
         trajectory = None
@@ -179,6 +183,11 @@ class imageExplorer:
           elif pressed == 99: # 'c' for canny
             self.cur = cv2.Canny(self.cur, self.cannyMin, self.cannyMax, self.cannyAperture)
             cv2.imshow(self.windowName, self.cur)
+          elif pressed == 100: # 'd' for display snapshot
+              if self.snap is None:
+                  print('no snapshot')
+              else:
+                  cv2.imshow(self.windowName, self.snap)
           elif pressed == 101: # 'e' equalizeHist
             self.cur = cv2.equalizeHist(self.cur)
             cv2.imshow(self.windowName, self.cur)
@@ -212,8 +221,6 @@ class imageExplorer:
               else:
                   if trajectory is not None:
                       print('using %s corner for box' % trajectory)
-                      box = self.shift_coords(self.coords, trajectory)
-                      topleft = (int(box[0]), int(box[2]))
                       bottomright = (int(box[1]), int(box[3]))
                       self.coords = box
                       self.colour = cv2.cvtColor(self.cur, cv2.COLOR_GRAY2BGR)
